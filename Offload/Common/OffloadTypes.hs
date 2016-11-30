@@ -8,8 +8,6 @@
 {-# LANGUAGE ScopedTypeVariables        #-}
 
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
-{-# OPTIONS_GHC -dynamic-too #-}
-
 
 module Offload.Common.OffloadTypes where
 
