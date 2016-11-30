@@ -189,8 +189,8 @@ annotationsOn guts bndr = do
 mkBitSizeTy :: Class -> Type -> Type
 mkBitSizeTy clas ty = mkTyConApp (head $ classATs clas) [ty]       
 
-coerceTyBitPack :: Class -> Type -> Type
-coerceTyBitPack clas ty = mkTyConApp (classTyCon clas) [ty]
+--coerceTyBitPack :: Class -> Type -> Type
+--coerceTyBitPack clas ty = mkTyConApp (classTyCon clas) [ty]
 
                 
 -- ============================================================
