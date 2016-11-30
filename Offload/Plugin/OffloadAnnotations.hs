@@ -2,8 +2,6 @@
 {-# LANGUAGE ConstraintKinds    #-}
 {-# LANGUAGE FlexibleContexts   #-}
 
-{-# OPTIONS_GHC -dynamic-too #-}
-
 module Offload.Plugin.OffloadAnnotations 
 (
  Offload(..),
