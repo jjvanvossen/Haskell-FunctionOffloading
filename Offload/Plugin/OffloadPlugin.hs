@@ -1,5 +1,4 @@
 {-# LANGUAGE DataKinds #-}
-{-# OPTIONS_GHC -dynamic-too #-}
 
 module Offload.Plugin.OffloadPlugin where
 
