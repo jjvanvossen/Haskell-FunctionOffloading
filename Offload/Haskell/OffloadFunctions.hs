@@ -4,8 +4,6 @@
 {-# LANGUAGE TypeOperators              #-}
 {-# LANGUAGE DataKinds                  #-}
 
-{-# OPTIONS_GHC -dynamic-too #-}
-
 module Offload.Haskell.OffloadFunctions 
 (
         offloadTemplate,
