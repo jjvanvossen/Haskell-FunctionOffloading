@@ -1,5 +1,3 @@
-{-# OPTIONS_GHC -dynamic-too #-}
-
 module Offload.Haskell.FIFOInterface 
 (
         readFIFO,
