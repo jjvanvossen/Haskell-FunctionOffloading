@@ -1,62 +1,76 @@
-This readme is not finished!! All references are broken and the tutorials are not finished.
-
+This readme is not finished!! Some references are broken and the manual offloading tutorial is not finished.
 
 # Haskell-FunctionOffloading
-Proof of concept for a thesis on the offloading of Haskell functions onto an FPGA
+Proof of concept for a thesis on the offloading of Haskell functions onto an FPGA. Thesis link: http://essay.utwente.nl/71486/
 
-Note: In-depth User manual is still a work in progress.
+Contents
++ Semi-automated offloading guide
++ Manual offloading guide
++ General tasks
++ Reproducing thesis setup
 
-[Add link to thesis]
 
-## Semi-automated function offloading
+## Semi-automated function offloading guide
+This guide describes how to use the thesis' implementation for semi-automated offloading of annotated Haskell functions. Refer to the thesis for more detail. First the requirements are described and subsequently the tutorial is given. An example can be found in the folder _/examples/auto/_ of this repository.
+
 ### Requirements
 + All Haskell functions that are to be offloaded should adhere to the following requirements:
-  + The offloadable functions are completely compilable to a hardware description language\footnote{In this implementation only a VHDL Quartus project was prepared, but Verilog should be possible too with some additional work.} by \Clashend.
+  + The offloadable functions are completely compilable to a hardware description language by CLaSH (In this implementation only a VHDL Quartus project was prepared, but Verilog should be possible too with some additional work).
   + An offloadable function should have the following pure function: **_i -> o_**
-  + A composition of the previously mentioned offloadable function and the higher-order data-flow function of \Clash \cite{ref:dataflowclash} has to be exist, i.e. the function can be passed as an argument to the **_pureDF_**
-  + The argument and result types should both be able to have an instance of the class **_BitPack_**\cite{ref:bitpackclash}, such that the functions **_pack_** and **_unpack_** can be applied to them.
+  + A composition of the previously mentioned offloadable function and the higher-order data-flow function of CLaSH has to be exist, i.e. the function can be passed as an argument to the **_pureDF_**
+  + The argument and result types should both be able to have an instance of the class **_BitPack_** of CLaSH such that the functions **_pack_** and **_unpack_** can be applied to them.
   + The function type should not contain any separately defined types, because the Core plugin does not have access to them in the intermediate files. 
-+ In order to compile the FPGA architecture with the listed representation of offloadable functions, all the targeted functions have to be within one or more Haskell modules that exclusively consists of \Clash compilable functions.
++ In order to compile the FPGA architecture with the listed representation of offloadable functions, all the targeted functions have to be within one or more Haskell modules that exclusively consists of CLaSH compilable functions.
 + It is required that the user only designs a set of offloaded functions that, in combination with the rest of the FPGA architecture and Xillybus IP core, will fit within the resource budget of the FPGA.
 + The user is required to fulfil the task of preventing non-deterministic behaviour by assigning the correct clock frequency to the FPGA architecture such that, in all possible system states, the propagation delays of the logic will not exceed the clock period.
 + The software partition of a Haskell co-design should be thread-safe when calling upon offloaded functions, such that no race conditions can occur.
-+ All the offloadable functions should be in a **single** Haskell module that exclusively consists of \Clash compilable functions\footnote{This occurs due to that this proof of concept does not take into account that multiple instances of the Core plugin can be active. In that case it would then result in duplicates of function identifiers and an incorrectly generated top-entity module for the hardware partition. }%\todo{*May still be fixed if time allows it.}.
++ All the offloadable functions should be in a **single** Haskell module that exclusively consists of CLaSH compilable functions (This occurs due to that this proof of concept does not take into account that multiple instances of the Core plugin can be active. In that case it would then result in duplicates of function identifiers and an incorrectly generated top-entity module for the hardware partition).
 
 ### Tutorial
+1. Start with a Haskell software-only design in **_module A_**.
 
-+ Start with a Haskell software-only design in \textit{module A}.
+2. Re-write the functions that will be offloaded according to the previously listed requirements for automated offloading and transfer them from **_module A_** into **_module B_**, which now will become an imported module of **_module A_**. Subsequently, simulation should verify the desired functional behaviour before proceeding.
 
-+ Re-write the functions that will be offloaded according to the previously listed requirements for automated offloading and transfer them from \textit{module A} into \textit{module B}, which now will become an imported module of \textit{module A}. Subsequently, simulation should verify the desired functional behaviour before proceeding.
+3. The following code is to be added to **_module B_** such that the Core plugin can be correctly invoked.
 
-+ The desired offloadable functions in \textit{module B} should now be annotated and additional code is to be added to \textit{module B} such that the Core plugin can be correctly invoked as stated in the automated offloading requirements above.
+```
+{-# OPTIONS_GHC -fplugin=Offload.Plugin.OffloadPlugin #-} -- requires ghc dynamic option '-package ghc' 
 
-+ Compile \textit{module A} (with \textit{module B} as an import) to an executable object file with GHC on the ARM, which results in the software partition of the co-design. The Core plugin will also automatically generate the top-entity module file that is used by \Clash to generate the FPGA architecture that contains the hardware partition of the co-design.
+import Offload.Plugin.OffloadAnnotations -- required for annotations
 
-+ The resulting top-entity module file has to be compiled with \Clashend\footnote[4]{On the faster x86-based host PC}, which will parametrize and generate the desired FPGA architecture in VHDL. The annotations and additional Core plugin code in module B should be removed again or commented out\footnote[5]{Actually, creating a copy of module B in step 2 and manually importing it instead is also possible.} in order to allow compilation with \Clashend. 
+import Offload.Haskell.OffloadFunctions
+makeClassesInScope :: (BitPack Bit, KnownNat 0) => () -- required for the offloadplugin
+makeClassesInScope = ()
+```
 
-+ The resulting VHDL files are to be added to the Quartus template project and synthesized to a programmable FPGA bitstream\footnotemark[4]. 
+4. The desired offloadable functions in **_module B_** should now be annotated using the following annotation whereas 'functionname' should be replaced with the actual offloadable function name. Using the 'OffloadMealy' or 'OffloadMoore' annotations does not offload a function in this proof of concept.
+``` 
+{-# ANN functionname OffloadPure #-}
+```
 
-+ The FPGA bitstream should now be uploaded to the ARM in order to program the FPGA at boot-time. Once the FPGA has been configured, then the in step 4 generated executable object file may be used to start the HW/SW co-designed Haskell program.
+5. Compile **_module A_** (with **_module B_** as an import) to an executable object file with GHC on the ARM, which results in the software partition of the co-design. The Core plugin will also automatically generate the top-entity module file that is used by CLaSH to generate the FPGA architecture that contains the hardware partition of the co-design.
 
+6. The resulting top-entity module file has to be compiled with CLaSH (on the faster x86-based host PC), which will parametrize and generate the desired FPGA architecture in VHDL. The annotations and additional Core plugin code in **_module B_** should be removed again or commented out (actually, creating a copy of **_module B_** in step 2 and manually importing it instead is also possible) in order to allow compilation with CLaSH. 
 
-todo annotate & add code & start compiler with -package ghc
+7. The resulting VHDL files are to be added to the Quartus template project and synthesized to a programmable FPGA bitstream (on the faster x86-based host PC).
++ The FPGA bitstream should now be uploaded to the ARM in order to program the FPGA at boot-time. Once the FPGA has been configured, then the in step 5 generated executable object file may be used to start the HW/SW co-designed Haskell program.
 
 ## Manual function offloading
 ### Requirements
 + All Haskell functions that are to be offloaded should adhere to the following requirements:
-  + The offloadable functions are completely compilable to a hardware description language\footnote{In this implementation only a VHDL Quartus project was prepared, but Verilog should be possible too with some additional work.} by \Clashend.
+  + The offloadable functions are completely compilable to a hardware description language\footnote{In this implementation only a VHDL Quartus project was prepared, but Verilog should be possible too with some additional work.} by CLaSH.
   + By default an offloadable function should be in the form of either one of the following abstract types \cite{ref:clashgentypes}:
-    + Pure function: \texttt{i -> o_**
-    + Mealy function: \texttt{s -> i -> (s, o)_**
-    + Moore function: \texttt{(s -> i -> s) -> (s -> o)_**
-  + A composition of the previously mentioned offloadable functions and a higher-order data-flow function of \Clash \cite{ref:dataflowclash} has to be exist, i.e. the function can be passed as an argument to either the **_pureDF_**, **_mealyDF_**, or **_mooreDF_** function.
+    + Pure function: **_i -> o_**
+    + Mealy function: **_s -> i -> (s, o)_**
+    + Moore function: **_(s -> i -> s) -> (s -> o)_**
+  + A composition of the previously mentioned offloadable functions and a higher-order data-flow function of CLaSH \cite{ref:dataflowclash} has to be exist, i.e. the function can be passed as an argument to either the **_pureDF_**, **_mealyDF_**, or **_mooreDF_** function.
   + The argument and result types should both be able to have an instance of the class **_BitPack_**\cite{ref:bitpackclash}, such that the functions **_pack_** and **_unpack_** can be applied to them.
-+ In order to compile the FPGA architecture with the listed representation of offloadable functions, all the targeted functions have to be within one or more Haskell modules that exclusively consists of \Clash compilable functions.
++ In order to compile the FPGA architecture with the listed representation of offloadable functions, all the targeted functions have to be within one or more Haskell modules that exclusively consists of CLaSH compilable functions.
 + It is required that the user only designs a set of offloaded functions that, in combination with the rest of the FPGA architecture and Xillybus IP core, will fit within the resource budget of the FPGA.
 + The user is required to fulfil the task of preventing non-deterministic behaviour by assigning the correct clock frequency to the FPGA architecture such that, in all possible system states, the propagation delays of the logic will not exceed the clock period.
 + The software partition of a Haskell co-design should be thread-safe when calling upon offloaded functions, such that no race conditions can occur.
-+ In addition to the three allowed basic offloadable function types (i.e. pure, mealy, and moore), it is also allowed to manually create sequential combinations of them, which are to be connected using the dataflow composition combinator function **_seqDF_** from \Clash \cite{ref:dataflowclash}.
-+ It is also allowed to manually offload a function that is **_Signal_** type based \cite{ref:clashgentypes}. It must be liftable to the dataflow type using the **_listDF_** function from \Clash \cite{ref:dataflowclash}.
++ In addition to the three allowed basic offloadable function types (i.e. pure, mealy, and moore), it is also allowed to manually create sequential combinations of them, which are to be connected using the dataflow composition combinator function **_seqDF_** from CLaSH \cite{ref:dataflowclash}.
++ It is also allowed to manually offload a function that is **_Signal_** type based \cite{ref:clashgentypes}. It must be liftable to the dataflow type using the **_listDF_** function from CLaSH \cite{ref:dataflowclash}.
 + It is the user's task to apply the protocol parameters correctly to the polymorphic functions and FPGA architecture. This implies that the function identifiers should be unique and that they are matching between the hardware and software partitions. Additionally, the **_serialization naturals} required by the functions should be correctly given (either calculation using Template Haskell or manually).
 + It is the task of the user to modify the main program to allow for the sequential **_Mealy_** or **_Moore_** functions. This means removing the process of folding the states 
 + The user should use the pipelined optimization approach with only a single reading thread, unless the in \autoref{sec:pipelined} mentioned solutions are used. \\
@@ -66,9 +80,9 @@ todo annotate & add code & start compiler with -package ghc
 
 + Re-write the functions that will be offloaded according to the previously listed requirements for manual offloading and move them into one or more separate modules, which we will call the \textit{module set D}. Subsequently, simulation should verify the desired functional behaviour before proceeding.
 
-+ Create the top-entity module for the \Clash compilation process of the hardware partition. A template file is available on \cite{ref:githubrepo}, which includes practical examples. Import the \textit{module set D} and correctly fill in the argument vector of offloadable functions of the \textit{topWrapper} function in the template file. 
++ Create the top-entity module for the CLaSH compilation process of the hardware partition. A template file is available on \cite{ref:githubrepo}, which includes practical examples. Import the \textit{module set D} and correctly fill in the argument vector of offloadable functions of the \textit{topWrapper} function in the template file. 
 
-+ The resulting top-entity module file has to be compiled with \Clashend, which will parametrize and generate desired FPGA architecture in VHDL.
++ The resulting top-entity module file has to be compiled with CLaSH, which will parametrize and generate desired FPGA architecture in VHDL.
 
 + The resulting VHDL files are to be added to the Quartus template project and synthesized to a programmable FPGA bitstream. 
 
@@ -82,7 +96,7 @@ add code examples
 
 
 ## General tasks
-Guide is written with a linux host pc in mind and the final.
+Guide is written with a linux host pc in mind and SD-card image used in this thesis. Any reproductions of the SD-card will most likely have different configurations.
 
 ### Connecting with the SoCKit
 In the SoCKit setup of the proof of concept we can connect to the SoCKit by means of an SSH network connection, which can be achieved with the following information:
@@ -96,7 +110,7 @@ For example, a linux operating system can connect to the SoCKit with the followi
 
 ref: https://linux.die.net/man/1/ssh
 
-**backup: minicom uart connection (see xillybus guide)**
+**backup method: serial usb-uart connection (see xillybus guide)**
 
 ### File transferring to (or from) the SoCKit
 **_scp [-r] [source] [destination]_**
@@ -128,7 +142,7 @@ How to generate a bit-file:
 + Compile (Ctrl+L)
 
 ### Programming the FPGA
-Refer to xillybus document (vfat partition) or use the steps below with the original SD-card image:
+Refer to xillybus document or use the steps below with the thesis' SD-card image:
 
 + Convert the generated **_xillydemo.sof_** to **_soc_system.rbf_** using the 'File>convert programming files...' menu in Quartus
 + upload your 'soc_system.rbf' file to **_/root/UploadToFPGA/_**
