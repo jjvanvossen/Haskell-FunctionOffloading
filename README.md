@@ -1,6 +1,8 @@
 # Haskell-FunctionOffloading
 Proof of concept for a thesis on the offloading of Haskell functions onto an FPGA. Thesis link: http://essay.utwente.nl/71486/
 
+This thesis is intended as a proof of concept for function offloading in the CLaSH compiler (which compiles Haskell code to HDLs). https://github.com/clash-lang/clash-prelude
+
 This readme file contains a somewhat more in-depth use guide as opposed to the thesis report. For readability reasons not everything is described in full detail and so feel free to ask any questions if desired.
 
 Guide contents:
